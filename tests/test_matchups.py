@@ -32,8 +32,9 @@ def test_head_vs_bumrah(con):
     assert m["dismissals"] == 1
     assert m["average"] == 10.0
     assert m["strike_rate"] == 200.0
-    # Dot balls: the opening 0 and the leg bye; the wicket ball is not a dot.
-    assert m["dot_pct"] == 40.0
+    # Dot balls: no run off the bat on a ball faced. The opening 0, the leg
+    # bye and the wicket ball, as scorers count them (docs/DATA.md).
+    assert m["dot_pct"] == 60.0
     assert (m["fours"], m["sixes"], m["matches"]) == (1, 1, 1)
 
 

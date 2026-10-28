@@ -1,0 +1,12 @@
+{
+  "closeOfPlay": [
+    {"day": 1, "innings": 1, "overs": "13.2", "score": "28/0",
+     "source": "https://gulfnews.com/sport/cricket/unrelenting-rain-play-abandoned-in-third-test-in-brisbane-with-australia-28-0-1.1734175942736"},
+    {"day": 2, "innings": 1, "overs": "101.0", "score": "405/7",
+     "source": "https://www.newsonair.gov.in/australia-405-7-at-stumps-on-day-2-in-third-test-against-india-at-gabba"},
+    {"day": 3, "innings": 2, "overs": "17.0", "score": "51/4",
+     "source": "https://deccanchronicle.com/sports/ind-vs-aus-3rd-test-india-shaking-at-514-at-stumps-on-day-3-1847258"},
+    {"day": 4, "innings": 2, "overs": "74.5", "score": "252/9",
+     "source": "https://www.aljazeera.com/sports/2024/12/17/bumrah-india-avoid-follow-on-as-third-australia-test-heads-for-draw"}
+  ]
+}
