@@ -28,7 +28,12 @@ function readHash() {
 function writeHash(v: { m: string; b: number; p: string | null; s: ScopeId }) {
   const p = new URLSearchParams({ m: v.m, b: String(v.b), s: v.s });
   if (v.p) p.set("p", v.p);
-  history.replaceState(null, "", `#${p}`);
+  // Some embedded viewers refuse history changes; the page works without them.
+  try {
+    history.replaceState(null, "", `#${p}`);
+  } catch {
+    /* keep going */
+  }
 }
 
 export function App() {

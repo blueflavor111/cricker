@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "e2e": "node tests/e2e/screens.mjs"
+    "e2e": "node tests/e2e/screens.mjs",
+    "single": "node scripts/single-page.mjs"
   },
   "dependencies": {
     "preact": "^10.29.8"

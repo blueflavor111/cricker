@@ -118,7 +118,8 @@ button { font: inherit; color: inherit; }
 .link { background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
 
 /* ---------- Header: the score is the anchor ---------- */
-.sticky { position: sticky; top: 0; z-index: 20; }
+.sticky { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--surface); }
 .top { background: var(--surface); border-bottom: 1px solid var(--line); }
 .top-meta { display: flex; align-items: center; gap: 12px; min-height: 40px; color: var(--ink-2); font-size: 13px; flex-wrap: wrap; padding-top: 6px; }
 .brand { font-weight: 700; letter-spacing: -0.02em; color: var(--ink); font-size: 15px; }
