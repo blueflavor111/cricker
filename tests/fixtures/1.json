@@ -1,0 +1,31 @@
+{
+  "meta": {"data_version": "1.1.0"},
+  "info": {
+    "dates": ["2024-12-14"],
+    "match_type": "Test",
+    "venue": "Test Ground",
+    "city": "Testville",
+    "teams": ["Australia", "India"],
+    "toss": {"winner": "India", "decision": "field"},
+    "outcome": {"result": "draw"},
+    "registry": {"people": {"TM Head": "aaaa0001", "SPD Smith": "aaaa0002", "JJ Bumrah": "bbbb0001", "Mohammed Siraj": "bbbb0002"}}
+  },
+  "innings": [{
+    "team": "Australia",
+    "overs": [
+      {"over": 0, "deliveries": [
+        {"batter": "TM Head", "bowler": "JJ Bumrah", "non_striker": "SPD Smith", "runs": {"batter": 0, "extras": 0, "total": 0}},
+        {"batter": "TM Head", "bowler": "JJ Bumrah", "non_striker": "SPD Smith", "runs": {"batter": 4, "extras": 0, "total": 4}},
+        {"batter": "TM Head", "bowler": "JJ Bumrah", "non_striker": "SPD Smith", "extras": {"wides": 1}, "runs": {"batter": 0, "extras": 1, "total": 1}},
+        {"batter": "TM Head", "bowler": "JJ Bumrah", "non_striker": "SPD Smith", "extras": {"noballs": 1}, "runs": {"batter": 6, "extras": 1, "total": 7}},
+        {"batter": "TM Head", "bowler": "JJ Bumrah", "non_striker": "SPD Smith", "extras": {"legbyes": 1}, "runs": {"batter": 0, "extras": 1, "total": 1}},
+        {"batter": "SPD Smith", "bowler": "JJ Bumrah", "non_striker": "TM Head", "runs": {"batter": 1, "extras": 0, "total": 1}},
+        {"batter": "TM Head", "bowler": "JJ Bumrah", "non_striker": "SPD Smith", "runs": {"batter": 0, "extras": 0, "total": 0},
+         "wickets": [{"player_out": "TM Head", "kind": "caught", "fielders": [{"name": "RR Pant"}]}]}
+      ]},
+      {"over": 1, "deliveries": [
+        {"batter": "SPD Smith", "bowler": "Mohammed Siraj", "non_striker": "TM Head", "runs": {"batter": 2, "extras": 0, "total": 2}}
+      ]}
+    ]
+  }]
+}
