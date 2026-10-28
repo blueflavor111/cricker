@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+cricker/__init__.py
+cricker/ingest.py
+cricker/matchups.py
+cricker.egg-info/PKG-INFO
+cricker.egg-info/SOURCES.txt
+cricker.egg-info/dependency_links.txt
+cricker.egg-info/entry_points.txt
+cricker.egg-info/requires.txt
+cricker.egg-info/top_level.txt
+tests/test_matchups.py
