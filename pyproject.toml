@@ -3,7 +3,7 @@ name = "cricker"
 version = "0.1.0"
 description = "Live cricket matchups and analytics"
 requires-python = ">=3.11"
-dependencies = ["duckdb>=1.0"]
+dependencies = ["duckdb>=1.0", "pyarrow>=14"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

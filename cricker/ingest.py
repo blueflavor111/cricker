@@ -11,6 +11,7 @@ import json
 from pathlib import Path
 
 import duckdb
+import pyarrow as pa
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS matches (
@@ -116,7 +117,7 @@ def ingest(source_dir, db_path):
     con = duckdb.connect(str(db_path))
     con.execute(SCHEMA)
     existing = {r[0] for r in con.execute("SELECT match_id FROM matches").fetchall()}
-    added = 0
+    matches, people, deliveries = [], {}, []
     for path in sorted(Path(source_dir).glob("*.json")):
         match_id = path.stem
         if match_id in existing:
@@ -124,19 +125,27 @@ def ingest(source_dir, db_path):
         match_row, people_rows, delivery_rows = parse_match(
             match_id, json.loads(path.read_text())
         )
-        con.execute("BEGIN")
-        con.execute("INSERT INTO matches VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", match_row)
-        if people_rows:
-            con.executemany("INSERT OR IGNORE INTO people VALUES (?, ?)", people_rows)
-        if delivery_rows:
-            con.executemany(
-                "INSERT INTO deliveries VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                delivery_rows,
-            )
-        con.execute("COMMIT")
-        added += 1
+        matches.append(match_row)
+        people.update(people_rows)
+        deliveries.extend(delivery_rows)
+
+    # Row-by-row inserts take minutes for the full Test set; load each
+    # table in one go through Arrow instead.
+    con.execute("BEGIN")
+    for table, rows in (
+        ("matches", matches),
+        ("people", list(people.items())),
+        ("deliveries", deliveries),
+    ):
+        if not rows:
+            continue
+        columns = [c[0] for c in con.execute(f"DESCRIBE {table}").fetchall()]
+        batch = pa.table(dict(zip(columns, map(list, zip(*rows)))))  # noqa: F841
+        verb = "INSERT OR IGNORE" if table == "people" else "INSERT"
+        con.execute(f"{verb} INTO {table} SELECT * FROM batch")
+    con.execute("COMMIT")
     con.close()
-    return added
+    return len(matches)
 
 
 def main():

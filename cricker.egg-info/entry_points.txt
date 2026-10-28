@@ -1,0 +1,3 @@
+[console_scripts]
+cricker-ingest = cricker.ingest:main
+cricker-matchup = cricker.matchups:main
