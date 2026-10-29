@@ -7,9 +7,7 @@ import argparse
 
 import duckdb
 
-# Dismissals credited to the bowler; run outs and the like don't count
-# against a bowler in a head-to-head.
-BOWLER_WICKETS = ("bowled", "caught", "caught and bowled", "lbw", "stumped", "hit wicket")
+from cricker.ingest import BOWLER_WICKETS
 
 MATCHUP_SQL = f"""
 SELECT
@@ -17,10 +15,9 @@ SELECT
     coalesce(sum(d.runs_batter), 0)                         AS runs,
     count(*) FILTER (WHERE d.wicket_kind IN {BOWLER_WICKETS}
                      AND d.player_out_id = d.batter_id)     AS dismissals,
-    count(*) FILTER (WHERE d.wides = 0 AND d.runs_batter = 0
-                     AND d.wicket_kind IS NULL)             AS dots,
-    count(*) FILTER (WHERE d.runs_batter = 4)               AS fours,
-    count(*) FILTER (WHERE d.runs_batter = 6)               AS sixes,
+    count(*) FILTER (WHERE d.wides = 0 AND d.runs_batter = 0) AS dots,
+    count(*) FILTER (WHERE d.runs_batter = 4 AND NOT d.non_boundary) AS fours,
+    count(*) FILTER (WHERE d.runs_batter = 6 AND NOT d.non_boundary) AS sixes,
     count(DISTINCT d.match_id)                              AS matches
 FROM deliveries d
 JOIN matches m USING (match_id)

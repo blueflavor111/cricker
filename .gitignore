@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
 .venv/
-data/
+*.egg-info/
+/data/
 *.duckdb
+web/node_modules/
+web/dist/
