@@ -1,92 +1,89 @@
 import { useMatch } from "./context";
 import { useWidth } from "./useWidth";
 import { code, fx, names, ordinal, teamColor } from "./format";
-import { comparable, groundRecord, quantile, totals } from "../engine/context";
+import { comparable, groundRecord, quantile, totals, type Total } from "../engine/context";
 import { average, economy } from "../engine/definitions";
 import { batAgg, bowlAgg, fmtDate, shortVenue } from "../engine/stats";
-import { Info } from "./Info";
 import { Name } from "./Name";
 
+// Supporting column. Conditional history (innings that were where this one
+// is now) comes first; unconditional ground history is labelled as such.
 export function GroundContext() {
   const { bundle } = useMatch();
-  const v = shortVenue(bundle.match.venue.name);
+  const v = shortVenue(bundle.match.venue.name).replace(/^the /, "The ");
   return (
-    <section class="panel ground" aria-labelledby="ground-h">
-      <h2 id="ground-h" class="kicker">
-        Context <span class="kicker-sub">{v.replace(/^the /, "The ")}{bundle.match.venue.country ? `, ${bundle.match.venue.country}` : ""}</span>
-      </h2>
-      <TotalStrip />
+    <section class="context" aria-labelledby="context-h">
+      <header class="sec-head">
+        <h2 id="context-h">Match context</h2>
+      </header>
       <Comparable />
+      <div class="ctx-block">
+        <h3 class="ctx-h">Ground history: {v}</h3>
+        <p class="ctx-sub">Every innings here in the data, whatever the match state.</p>
+        <TotalStrip />
+        <Record />
+      </div>
       <Form />
-      <Record />
     </section>
   );
 }
 
-function TotalStrip() {
+// A dot per innings on a runs axis, stacked where they would overlap, with
+// the middle half shaded and the median marked.
+function DotStrip({ values, now, label, nowLabel }: { values: Total[]; now: number | null; label: string; nowLabel?: string }) {
   const { bundle, state } = useMatch();
   const [ref, width] = useWidth<HTMLDivElement>(320);
-  const cur = state.current;
-  const all = totals(bundle, bundle.history.venue, cur.n);
-  const v = shortVenue(bundle.match.venue.name);
-  if (!all.length) return <p class="empty">No {ordinal(cur.n)} innings at {v} in the data.</p>;
-  const sorted = all.map((t) => t.runs).sort((a, b) => a - b);
-  const med = quantile(sorted, 0.5)!;
-  const max = Math.max(500, Math.ceil(Math.max(...sorted, cur.runs) / 100) * 100);
-  const H = 90;
-  const m = { l: 8, r: 8 };
-  const x = (r: number) => m.l + ((width - m.l - m.r) * r) / max;
-  const passed = sorted.filter((r) => r >= cur.runs).length;
-  // Stack dots that would overlap, so every innings stays visible.
+  const sorted = values.map((t) => t.runs).sort((a, b) => a - b);
+  const p25 = quantile(sorted, 0.25)!;
+  const p50 = quantile(sorted, 0.5)!;
+  const p75 = quantile(sorted, 0.75)!;
+  const max = Math.max(500, Math.ceil(Math.max(...sorted, now ?? 0) / 100) * 100);
+  const W = Math.max(240, width);
+  const m = { l: 10, r: 10 };
+  const x = (r: number) => m.l + ((W - m.l - m.r) * r) / max;
   const lanes: number[][] = [];
-  const placed = [...all].sort((a, b) => a.runs - b.runs).map((t) => {
-    let lane = 0;
-    while ((lanes[lane] ?? []).some((px) => Math.abs(px - x(t.runs)) < 9)) lane++;
-    (lanes[lane] ??= []).push(x(t.runs));
-    return { t, lane };
-  });
-
+  const placed = [...values]
+    .sort((a, b) => a.runs - b.runs)
+    .map((t) => {
+      let lane = 0;
+      while ((lanes[lane] ?? []).some((px) => Math.abs(px - x(t.runs)) < 8)) lane++;
+      (lanes[lane] ??= []).push(x(t.runs));
+      return { t, lane };
+    });
+  const depth = Math.min(6, lanes.length);
+  const base = 22 + depth * 8;
+  const H = base + 26;
+  const step = max > 600 ? 200 : 100;
   return (
-    <figure class="strip">
-      <figcaption>
-        <b>
-          {ordinal(cur.n)} innings totals at {v}
-        </b>{" "}
-        <span class="muted">
-          {all.length} innings, {fmtDate(all[0].date).slice(-4)}–{fmtDate(all[all.length - 1].date).slice(-4)}
-        </span>
-      </figcaption>
-      <div ref={ref}>
-        <svg width={width} height={H} role="img" aria-label={`Past ${ordinal(cur.n)} innings totals at ${v}: median ${Math.round(med)}. ${passed} of ${all.length} reached ${cur.runs}.`}>
-          <line class="grid" x1={m.l} x2={width - m.r} y1={56} y2={56} />
-          {[0, 100, 200, 300, 400, 500, 600, 700, 800].filter((t) => t <= max).map((t) => (
-            <text class="axis" x={x(t)} y={82} text-anchor="middle">
-              {t}
-            </text>
-          ))}
-          {placed.map(({ t, lane }) => (
-            <circle class={`tot ${t.allOut ? "all-out" : "not-all-out"}`} cx={x(t.runs)} cy={56 - 8 - lane * 9} r={4}>
-              <title>
-                {t.team} {t.runs}/{t.wickets}
-                {t.declared ? "d" : ""}, {t.date}
-              </title>
-            </circle>
-          ))}
-          <line class="median" x1={x(med)} x2={x(med)} y1={18} y2={62} />
-          <g style={{ "--team": teamColor(bundle, cur.team) }}>
-            <line class="now-line" x1={x(cur.runs)} x2={x(cur.runs)} y1={16} y2={62} />
-            <text class="now-label" x={x(cur.runs)} y={11} text-anchor={x(cur.runs) > width - 60 ? "end" : x(cur.runs) < 40 ? "start" : "middle"}>
-              {cur.complete ? "" : "now "}
-              {cur.runs}
+    <div ref={ref} class="dotstrip">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={label}>
+        <rect class="ds-iqr" x={x(p25)} y={12} width={x(p75) - x(p25)} height={base - 8} />
+        <line class="ds-axis" x1={m.l} x2={W - m.r} y1={base + 4} y2={base + 4} />
+        {Array.from({ length: max / step + 1 }, (_, k) => k * step).map((t) => (
+          <text class="ds-tick" x={x(t)} y={base + 20} text-anchor={t === 0 ? "start" : t === max ? "end" : "middle"}>
+            {t}
+          </text>
+        ))}
+        {placed.map(({ t, lane }) => (
+          <circle class={`ds-dot ${t.allOut ? "" : "is-open"}`} cx={x(t.runs)} cy={base - 3 - Math.min(lane, depth - 1) * 8} r={3.3}>
+            <title>
+              {t.team} {t.runs}
+              {t.allOut ? "" : `/${t.wickets}`}
+              {t.declared ? "d" : ""}, {fmtDate(t.date)}
+            </title>
+          </circle>
+        ))}
+        <line class="ds-med" x1={x(p50)} x2={x(p50)} y1={8} y2={base + 4} />
+        {now != null && (
+          <g class="ds-now" style={{ "--team": teamColor(bundle, state.current.team) }}>
+            <line x1={x(now)} x2={x(now)} y1={2} y2={base + 4} />
+            <text x={x(now)} y={8} dx={x(now) > W - 70 ? -4 : 4} text-anchor={x(now) > W - 70 ? "end" : "start"}>
+              {nowLabel ?? now}
             </text>
           </g>
-        </svg>
-      </div>
-      <p class="strip-note">
-        Median <b class="num">{Math.round(med)}</b>. {passed} of {all.length} reached {cur.runs}
-        {cur.complete ? "" : " or more"}. <span class="key-filled" /> all out <span class="key-hollow" /> declared or not out.
-      </p>
-    </figure>
+        )}
+      </svg>
+    </div>
   );
 }
 
@@ -94,29 +91,114 @@ function Comparable() {
   const { bundle, state } = useMatch();
   const cur = state.current;
   const overs = Math.floor(cur.legal / 6);
-  if (cur.complete || overs < 5) return null;
+  const where = bundle.match.venue.country ?? "this country";
+  const head = <h3 class="ctx-h">What have teams done from similar positions?</h3>;
+  if (cur.complete)
+    return (
+      <div class="ctx-block ctx-lead">
+        {head}
+        <p class="ctx-sub">The {ordinal(cur.n)} innings is over, so there is no position to compare. Move the timeline back into an innings to see it.</p>
+      </div>
+    );
+  if (overs < 5)
+    return (
+      <div class="ctx-block ctx-lead">
+        {head}
+        <p class="ctx-sub">Shown from the 5th over of an innings, when positions start to differ.</p>
+      </div>
+    );
   const at = cur.overs.find((o) => o.over === overs - 1)?.cum ?? cur.runs;
   const wk = cur.fow.filter((f) => f.legal <= overs * 6).length;
   const c = comparable(bundle, bundle.history.country, cur.n, overs, at, wk);
-  const where = bundle.match.venue.country ?? "this country";
   return (
-    <div class="comparable">
-      <h3 class="mini-h">
-        From a similar position
-        <Info text={`Past ${ordinal(cur.n)} innings in ${where} that, after ${overs} overs, were within 25 runs of ${at} and within one wicket of ${wk} down. What they finished on is history, not a forecast: pitches, declarations and the weather all differ.`} />
-      </h3>
+    <div class="ctx-block ctx-lead">
+      {head}
+      <p class="ctx-sub">
+        {ordinal(cur.n)} innings in {where} that were within 25 runs of <b class="num">{at}/{wk}</b> (±1 wicket) after {overs} overs. Where they finished:
+      </p>
       {c.n < 5 ? (
-        <p class="muted">
-          Only {c.n} past {ordinal(cur.n)} innings in {where} were near {at}/{wk} after {overs} overs. Too few to summarise.
+        <p class="empty">
+          Only {c.n} such innings in the data, too few to summarise.
         </p>
       ) : (
-        <p>
-          <b class="num">{c.n}</b> {ordinal(cur.n)} innings in {where} were near <b class="num">{at}/{wk}</b> after {overs} overs. They finished on a median of{" "}
-          <b class="num">{Math.round(c.median!)}</b>, the middle half between {Math.round(c.p25!)} and {Math.round(c.p75!)}
-          {c.declared ? `; ${c.declared} of them declared` : ""}.
-        </p>
+        <>
+          <dl class="cmp-figs">
+            <div class="cmp-main">
+              <dt>Median final total</dt>
+              <dd class="num">{Math.round(c.median!)}</dd>
+            </div>
+            <div>
+              <dt>Middle half</dt>
+              <dd class="num">
+                {Math.round(c.p25!)}–{Math.round(c.p75!)}
+              </dd>
+            </div>
+            <div>
+              <dt>Innings</dt>
+              <dd class="num">{c.n}</dd>
+            </div>
+          </dl>
+          <DotStrip values={c.finals} now={cur.runs} nowLabel={`now ${cur.runs}`} label={`Final totals of ${c.n} similar innings: median ${Math.round(c.median!)}, middle half ${Math.round(c.p25!)} to ${Math.round(c.p75!)}.`} />
+          <p class="fig-note">
+            <i class="k-iqr" /> middle half <i class="k-med" /> median · filled dot all out, open dot declared or unfinished
+            {c.declared ? ` (${c.declared} declared)` : ""}. History, not a forecast.
+          </p>
+        </>
       )}
     </div>
+  );
+}
+
+function TotalStrip() {
+  const { bundle, state } = useMatch();
+  const cur = state.current;
+  const all = totals(bundle, bundle.history.venue, cur.n);
+  const v = shortVenue(bundle.match.venue.name);
+  if (!all.length) return <p class="empty">No {ordinal(cur.n)} innings at {v} in the data.</p>;
+  const sorted = all.map((t) => t.runs).sort((a, b) => a - b);
+  const med = quantile(sorted, 0.5)!;
+  const passed = sorted.filter((r) => r >= cur.runs).length;
+  return (
+    <figure class="ctx-fig">
+      <figcaption>
+        <b>{ordinal(cur.n)} innings totals</b>{" "}
+        <span class="muted num">
+          {all.length} innings, {all[0].date.slice(0, 4)}–{all[all.length - 1].date.slice(0, 4)} · median {Math.round(med)}
+        </span>
+      </figcaption>
+      <DotStrip values={all} now={cur.runs} nowLabel={`${cur.complete ? "" : "now "}${cur.runs}`} label={`Past ${ordinal(cur.n)} innings totals at ${v}: median ${Math.round(med)}. ${passed} of ${all.length} reached ${cur.runs}.`} />
+      <p class="fig-note num">
+        {passed} of {all.length} reached {cur.runs}
+        {cur.complete ? "" : " or more"}.
+      </p>
+    </figure>
+  );
+}
+
+function Record() {
+  const { bundle } = useMatch();
+  const r = groundRecord(bundle);
+  if (!r.tests) return null;
+  const facts: [string, string, string?][] = [
+    ["Tests in the data", `${r.tests}`, `${r.from!.slice(0, 4)}–${r.to!.slice(0, 4)}`],
+    ["Drawn", `${r.draws}`],
+    ["Won by side batting first", `${r.batFirstWon}`, `lost ${r.batFirstLost}`],
+    ["Toss winner chose to bat", `${r.tossBat}`],
+    ["4th-innings chases won", `${r.chasesWon}`, `of ${r.chasesTried}`],
+    ["Highest chase", r.highestChase ? `${r.highestChase.runs}` : "none", r.highestChase ? `${code(r.highestChase.team)} ${r.highestChase.date.slice(0, 4)}` : ""],
+  ];
+  return (
+    <table class="table facts">
+      <tbody>
+        {facts.map(([k, v, s]) => (
+          <tr>
+            <th scope="row">{k}</th>
+            <td>{v}</td>
+            <td class="muted">{s ?? ""}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -125,61 +207,52 @@ function Form() {
   const cur = state.current;
   if (!state.crease.length) return null;
   const n = names(bundle);
-  const career = scopes.find((s) => s.id === "before")!;
-  const country = scopes.find((s) => s.id === "country");
+  const before = scopes.find((s) => s.id === "before")!;
   const venue = scopes.find((s) => s.id === "venue")!;
-  const batRows = state.crease.map((id) => {
-    const b = cur.batters.find((x) => x.id === id)!;
-    const c = batAgg(bundle, rows, id, career);
-    const inC = country ? batAgg(bundle, rows, id, { ...country, current: false }) : null;
-    const atV = batAgg(bundle, rows, id, { ...venue, current: false });
-    return { id, b, c, inC, atV };
-  });
+  const v = shortVenue(bundle.match.venue.name);
   const w = cur.bowlers.find((x) => x.id === state.bowler)!;
-  const wc = bowlAgg(bundle, rows, w.id, career);
+  const wc = bowlAgg(bundle, rows, w.id, before);
   const wv = bowlAgg(bundle, rows, w.id, { ...venue, current: false });
-  const avgCell = (runs: number, outs: number, inns: number) =>
+  const cell = (runs: number, outs: number, inns: number) =>
     inns === 0 ? <td class="none">–</td> : <td title={`${inns} innings, ${outs} dismissals`}>{fx(average(runs, outs))}<small> {inns}i</small></td>;
   return (
-    <div class="form">
-      <h3 class="mini-h">
-        Today against their record
-        <Info text="Before this match: Tests that started earlier. Averages count every dismissal, as published; the small figure is innings played." />
-      </h3>
-      <table class="table num compact">
+    <div class="ctx-block">
+      <h3 class="ctx-h">Today against their record</h3>
+      <p class="ctx-sub">Averages before this match; small figures are innings or Tests.</p>
+      <table class="table compact">
         <thead>
           <tr>
-            <th>Batting</th>
-            <th>Now</th>
-            <th>Career avg</th>
-            {country && <th>In {code(country.label.replace(/^In /, ""))}</th>}
-            <th>Here</th>
+            <th scope="col">Batter</th>
+            <th scope="col">Today</th>
+            <th scope="col">Career</th>
+            <th scope="col">Here</th>
           </tr>
         </thead>
         <tbody>
-          {batRows.map(({ id, b, c, inC, atV }) => (
-            <tr>
-              <th scope="row">
-                <Name id={id} short />
-              </th>
-              <td>
-                {b.runs}* <small>({b.balls})</small>
-              </td>
-              {avgCell(c.runs, c.outs, c.innings)}
-              {inC && avgCell(inC.runs, inC.outs, inC.innings)}
-              {avgCell(atV.runs, atV.outs, atV.innings)}
-            </tr>
-          ))}
+          {state.crease.map((id) => {
+            const b = cur.batters.find((x) => x.id === id)!;
+            const c = batAgg(bundle, rows, id, before);
+            const atV = batAgg(bundle, rows, id, { ...venue, current: false });
+            return (
+              <tr>
+                <th scope="row">
+                  <Name id={id} short />
+                </th>
+                <td>
+                  {b.runs}* <small>({b.balls})</small>
+                </td>
+                {cell(c.runs, c.outs, c.innings)}
+                {cell(atV.runs, atV.outs, atV.innings)}
+              </tr>
+            );
+          })}
         </tbody>
-      </table>
-      <table class="table num compact">
         <thead>
           <tr>
-            <th>Bowling</th>
-            <th>Now</th>
-            <th>Career avg</th>
-            <th>Econ</th>
-            <th>Here</th>
+            <th scope="col">Bowler</th>
+            <th scope="col">Today</th>
+            <th scope="col">Career</th>
+            <th scope="col">Here</th>
           </tr>
         </thead>
         <tbody>
@@ -190,45 +263,24 @@ function Form() {
             <td>
               {w.wickets}–{w.runs}
             </td>
-            <td title={`${wc.wickets} wickets in ${wc.matches} Tests`}>{fx(wc.wickets ? wc.runs / wc.wickets : null)}</td>
-            <td>{fx(economy(wc.runs, wc.balls), 2)}</td>
-            <td title={`${wv.wickets} wickets in ${wv.matches} Tests here`}>{wv.matches ? `${fx(wv.wickets ? wv.runs / wv.wickets : null)} ` : "first Test"}{wv.matches ? <small>{wv.matches}T</small> : null}</td>
+            <td title={`${wc.wickets} wickets in ${wc.matches} Tests, economy ${fx(economy(wc.runs, wc.balls), 2)}`}>
+              {fx(wc.wickets ? wc.runs / wc.wickets : null)}
+              <small> {wc.matches}T</small>
+            </td>
+            <td title={`${wv.wickets} wickets in ${wv.matches} Tests at ${v}`}>
+              {wv.matches ? (
+                <>
+                  {fx(wv.wickets ? wv.runs / wv.wickets : null)}
+                  <small> {wv.matches}T</small>
+                </>
+              ) : (
+                <span class="muted">first Test</span>
+              )}
+            </td>
           </tr>
         </tbody>
       </table>
-      <p class="muted small">{n.short(w.id)}'s figures here are from earlier Tests only.</p>
-    </div>
-  );
-}
-
-function Record() {
-  const { bundle } = useMatch();
-  const r = groundRecord(bundle);
-  if (!r.tests) return null;
-  const facts: [string, string, string?][] = [
-    ["Tests in the data", `${r.tests}`, `${fmtDate(r.from!)} to ${fmtDate(r.to!)}`],
-    ["Drawn", `${r.draws}`, `of ${r.tests}`],
-    ["Side batting first won", `${r.batFirstWon}`, `lost ${r.batFirstLost}`],
-    ["Toss winner chose to bat", `${r.tossBat}`, `of ${r.tests}`],
-    ["Successful 4th-inns chases", `${r.chasesWon}`, `of ${r.chasesTried} decided Tests with a 4th innings`],
-    ["Highest successful chase", r.highestChase ? `${r.highestChase.runs}` : "none", r.highestChase ? `${r.highestChase.team}, ${r.highestChase.date.slice(0, 4)}` : ""],
-  ];
-  return (
-    <div class="record">
-      <h3 class="mini-h">
-        Ground record
-        <Info text="Tests at this ground that Cricsheet holds ball-by-ball, before this match. Cricsheet's men's Test coverage starts in Dec 2001 and misses some Tests, so counts are of the data, not of all Tests ever played here." />
-      </h3>
-      <dl class="facts">
-        {facts.map(([k, v, s]) => (
-          <div>
-            <dt>{k}</dt>
-            <dd>
-              <span class="num">{v}</span> {s && <small>{s}</small>}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <p class="fig-note">{n.short(w.id)}'s bowling average counts only wickets credited to the bowler.</p>
     </div>
   );
 }

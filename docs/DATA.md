@@ -10,9 +10,9 @@ reads from the one before it.
 | Derived aggregates | match bundles from `cricker-bundle`, `web/public/data/*.json` | the match as ball events, plus per-innings history rows as known before the match |
 | Presentation | `web/src/ui` | renders what `web/src/engine` computes; computes nothing of its own |
 
-Model-derived interpretation (currently only the head-to-head "plausible
-range") lives in `web/src/engine/definitions.ts` and is labelled
-*Interpretation* wherever it appears.
+The one model-derived figure (the head-to-head "90% range") lives in
+`web/src/engine/definitions.ts` and is always named as a range, never shown as
+a verdict.
 
 ## Sources
 
@@ -88,16 +88,20 @@ bowling and head-to-head row against the SQL rows for the same match.
 
 A head-to-head average often rests on a handful of dismissals. Cricker shows:
 
-- **Evidence**: five pips for 1, 2, 5, 10 and 20+ dismissals, with the count
-  stated in words.
-- **Plausible range** (labelled *Interpretation*): an exact 90% Poisson
-  interval for the number of dismissals given the balls faced, turned into a
-  range for the average (runs / upper bound to runs / lower bound). With no
-  dismissals the range has no upper limit.
-- **Verdict**: someone "has had the better of it" only when the whole range
-  sits on one side of the batter's usual average (runs per bowler-credited
-  dismissal against all bowlers in the same window). Below 3 dismissals and
-  120 balls the verdict is "too little evidence".
+- **Sample size, stated**: balls, dismissals and Tests sit beside every
+  head-to-head figure, and a single factual note says what the average rests
+  on. Below 10 dismissals it also gives the 90% range.
+- **90% range**: an exact Poisson interval for the number of dismissals given
+  the balls faced, turned into a range for the average (runs / upper bound to
+  runs / lower bound). With no dismissals there is no average and the range
+  has no upper limit. It is drawn against the batter's average against all
+  bowlers (runs per bowler-credited dismissal, same window) and the bowler's
+  bowling average, so readers can judge the gap themselves; the page does not
+  declare a winner. `edge()` in the engine still computes the old verdict for
+  tests and possible later use.
+- **Where the figure comes from**: the window is split into before this
+  series, earlier in this series and this match, so history and today are
+  never blended invisibly.
 
 Ground context is descriptive: the distribution of past totals for the same
 innings number, a band of past progressions that stops when fewer than six

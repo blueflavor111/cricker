@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState, useCallback } from "preact/hooks";
+import { useStuck } from "./ui/useStuck";
 import type { Bundle } from "./engine/types";
 import { SCHEMA } from "./engine/types";
 import { buildTimeline, stateAt } from "./engine/replay";
 import { currentRows, scopes, type ScopeId } from "./engine/stats";
-import { Header } from "./ui/Header";
+import { Masthead, TopNav } from "./ui/Header";
 import { TimeBar } from "./ui/TimeBar";
 import { Contest } from "./ui/Contest";
 import { Development } from "./ui/Development";
 import { GroundContext } from "./ui/GroundContext";
 import { Deep } from "./ui/Deep";
 import { PlayerDrawer } from "./ui/PlayerDrawer";
-import { Ctx, type View } from "./ui/context";
+import { Ctx } from "./ui/context";
 
 export interface MatchIndexEntry {
   id: string;
@@ -45,7 +46,7 @@ export function App() {
   const [cursor, setCursor] = useState<number>(initial.b != null ? Number(initial.b) : -1);
   const [player, setPlayer] = useState<string | null>(initial.p);
   const [scope, setScope] = useState<ScopeId>(initial.s ?? "career");
-  const [view, setView] = useState<View>("contest");
+  const stuck = useStuck(!!bundle);
 
   useEffect(() => {
     fetch("data/index.json")
@@ -93,33 +94,21 @@ export function App() {
   if (error) return <div class="fatal">{error}</div>;
   if (!bundle || !timeline || !state || !rows) return <div class="loading" aria-busy="true">Loading match…</div>;
 
-  const ctx = { bundle, timeline, state, rows, scope, scopes: scopeList, setScope, go, openPlayer: setPlayer, view };
+  const ctx = { bundle, timeline, state, rows, scope, scopes: scopeList, setScope, go, openPlayer: setPlayer };
   return (
     <Ctx.Provider value={ctx}>
-      <div class="sticky">
-        <Header index={index ?? []} onMatch={openMatch} />
-        <TimeBar />
-      </div>
-      <nav class="views" aria-label="Sections">
-        {(["contest", "match", "context", "card"] as View[]).map((v) => (
-          <button aria-pressed={view === v} onClick={() => setView(v)}>
-            {{ contest: "Contest", match: "Match", context: "Ground", card: "Scorecard" }[v]}
-          </button>
-        ))}
-      </nav>
-      <main class="canvas" data-view={view}>
-        <div class="col-main">
+      <TopNav index={index ?? []} onMatch={openMatch} />
+      <Masthead />
+      <TimeBar stuck={stuck} />
+      <main class="wrap page">
+        <div class="overview">
           <Contest />
-          <Development />
-        </div>
-        <aside class="col-side">
           <GroundContext />
-        </aside>
-        <div class="col-wide">
-          <Deep />
         </div>
+        <Development />
+        <Deep />
       </main>
-      <footer class="foot">
+      <footer class="foot wrap">
         <p>
           Ball-by-ball data from <a href={bundle.source.url}>Cricsheet</a> (data version {bundle.source.dataVersion}, revision{" "}
           {bundle.source.revision}, {bundle.source.created}), {bundle.source.licence}. Historical figures cover the men's Tests

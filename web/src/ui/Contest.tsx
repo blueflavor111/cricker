@@ -1,22 +1,24 @@
 import { useMatch } from "./context";
+import { useWidth } from "./useWidth";
 import { Name } from "./Name";
-import { fx, fpct, names, teamColor, code } from "./format";
-import { averageRange, average, edge, evidence, EVIDENCE_TEXT, pct, strikeRate, type BatAgg, type AverageRange } from "../engine/definitions";
-import { batAgg, bowlAgg, h2hAgg, meetings, type Scope } from "../engine/stats";
+import { fx, fpct, names, teamColor } from "./format";
+import { averageRange, average, ballsPer, pct, strikeRate, type BatAgg } from "../engine/definitions";
+import { batAgg, bowlAgg, h2hAgg, meetings, type Scope, type ScopeId } from "../engine/stats";
 import { oversText } from "../engine/replay";
-import { Info } from "./Info";
 
-// The batter on strike against the bowler, with their history. The pairing is
-// the last delivery's: what was known at that moment, never the next ball.
+// The three windows most people want; the rest sit in a selector beside them.
+const PRIMARY: ScopeId[] = ["career", "series", "match"];
+
+// The batter who faced the last ball against the bowler who bowled it, with
+// their record. The pairing is the last delivery's: what was known at that
+// moment, never the next ball.
 export function Contest() {
-  const { bundle, state, rows, scope: scopeId, scopes, setScope } = useMatch();
+  const { bundle, state, rows, scope: scopeId, scopes } = useMatch();
   const bat = state.ball.bat;
   const bowl = state.ball.bowl;
   const n = names(bundle);
   const scope = scopes.find((s) => s.id === scopeId) ?? scopes[0];
   const h = h2hAgg(bundle, rows, bat, bowl, scope);
-  const base = batAgg(bundle, rows, bat, scope, "bowler");
-  const bowlBase = bowlAgg(bundle, rows, bowl, scope);
   const cur = state.current;
   const bi = cur.batters.find((b) => b.id === bat)!;
   const wi = cur.bowlers.find((b) => b.id === bowl)!;
@@ -25,165 +27,316 @@ export function Contest() {
   const bowlTeam = bundle.match.teams.find((t) => t !== batTeam)!;
 
   return (
-    <section class="panel contest" aria-labelledby="contest-h">
-      <h2 id="contest-h" class="kicker">
-        The contest <span class="kicker-sub">{state.status === "final" ? "final delivery" : `after ${state.ball.label}`}</span>
-      </h2>
-      <div class="vs">
-        <div class="side" style={{ "--team": teamColor(bundle, batTeam) }}>
-          <span class="role">{code(batTeam)} · batting</span>
-          <Name id={bat} class="big-name" />
-          <span class="now num">
+    <section class="contest" aria-labelledby="contest-h">
+      <header class="sec-head">
+        <h2 id="contest-h">The contest</h2>
+        <span class="sec-note num">{state.status === "final" ? "final delivery of the match" : `as of ${state.ball.label}, ${cur.team} ${ordinalInns(cur.n)}`}</span>
+      </header>
+
+      <div class="ct-names">
+        <div class="ct-p" style={{ "--team": teamColor(bundle, batTeam) }}>
+          <span class="ct-role">
+            <i class="sw" />
+            {batTeam}, batting
+          </span>
+          <Name id={bat} class="ct-name" />
+          <span class="ct-today num">
             {bi.runs}
-            {out ? "" : "*"} ({bi.balls}) {out && <span class="out-tag">out {out.k}</span>}
+            {out ? "" : "*"} off {bi.balls} {out ? <span class="wkt-text">out {out.k}</span> : "today"}
           </span>
         </div>
-        <span class="v" aria-hidden="true">v</span>
-        <div class="side right" style={{ "--team": teamColor(bundle, bowlTeam) }}>
-          <span class="role">{code(bowlTeam)} · bowling</span>
-          <Name id={bowl} class="big-name" />
-          <span class="now num">
-            {wi.wickets}–{wi.runs} ({oversText(wi.balls)})
+        <span class="ct-v" aria-hidden="true">
+          v
+        </span>
+        <div class="ct-p" style={{ "--team": teamColor(bundle, bowlTeam) }}>
+          <span class="ct-role">
+            <i class="sw" />
+            {bowlTeam}, bowling
+          </span>
+          <Name id={bowl} class="ct-name" />
+          <span class="ct-today num">
+            {wi.wickets}–{wi.runs} off {oversText(wi.balls)} overs today
           </span>
         </div>
       </div>
 
-      <div class="scopes" role="radiogroup" aria-label="Time window">
-        {scopes.map((s) => (
-          <button type="button" role="radio" aria-checked={s.id === scope.id} title={s.hint} onClick={() => setScope(s.id)}>
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <ScopeControl />
+      <p class="ct-window">{scope.hint}.</p>
 
       {h.balls === 0 ? (
         <p class="empty">
-          No recorded deliveries from {n.short(bowl)} to {n.short(bat)} {scope.id === "career" ? "in Tests" : `in this window (${scope.label.toLowerCase()})`}.
-          {scope.id !== "career" && " Try Career."}
+          {n.short(bowl)} has not bowled to {n.short(bat)} {scope.id === "career" ? "in any Test in the data" : `in this window`}.
+          {scope.id !== "career" && " Career covers every Test in the data."}
         </p>
       ) : (
         <>
           <Figures h={h} />
-          <EdgeChart h={h} base={base} bowlBase={bowlBase.wickets ? bowlBase.runs / bowlBase.wickets : null} bat={bat} bowl={bowl} scope={scope} />
-          <div class="contest-grid">
-            <ScoringShape h={h} base={base} bowlerShort={n.short(bowl)} />
-            <Meetings bat={bat} bowl={bowl} />
-          </div>
+          <SampleNote h={h} bowler={n.short(bowl)} />
+          <Sources bat={bat} bowl={bowl} scope={scope} />
         </>
       )}
-      <Splits bat={bat} bowl={bowl} />
+      <MatchupTable bat={bat} bowl={bowl} />
+      {h.balls > 0 && (
+        <div class="ct-pair">
+          <RangePlot h={h} bat={bat} bowl={bowl} scope={scope} />
+          <ScoringShape h={h} bat={bat} scope={scope} bowlerShort={n.short(bowl)} />
+        </div>
+      )}
+      <Meetings bat={bat} bowl={bowl} />
     </section>
   );
 }
 
+const ordinalInns = (k: number) => `${["1st", "2nd", "3rd", "4th"][k - 1]} innings`;
+
+function ScopeControl() {
+  const { scopes, scope, setScope } = useMatch();
+  const others = scopes.filter((s) => !PRIMARY.includes(s.id));
+  const inOthers = others.some((s) => s.id === scope);
+  return (
+    <div class="ct-scope">
+      <div class="seg" role="radiogroup" aria-label="Window">
+        {PRIMARY.map((id) => {
+          const s = scopes.find((x) => x.id === id);
+          return (
+            s && (
+              <button type="button" role="radio" aria-checked={s.id === scope} title={s.hint} onClick={() => setScope(s.id)}>
+                {s.label}
+              </button>
+            )
+          );
+        })}
+      </div>
+      <label class={`ct-other ${inOthers ? "is-active" : ""}`}>
+        <span>Other windows</span>
+        <select class="select" value={inOthers ? scope : ""} onChange={(e) => setScope((e.target as HTMLSelectElement).value as ScopeId)}>
+          {!inOthers && <option value="">Choose…</option>}
+          {others.map((s) => (
+            <option value={s.id}>{s.label}</option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
 function Figures({ h }: { h: BatAgg }) {
-  const ev = evidence(h.balls, h.outs);
   const avg = average(h.runs, h.outs);
-  const items: [string, string, string?][] = [
+  const primary: [string, string][] = [
     ["Balls", String(h.balls)],
     ["Runs", String(h.runs)],
-    ["Dismissed", String(h.outs), "Bowled, caught, lbw, stumped or hit wicket off this bowler. Run outs don't count against the bowler."],
-    ["Average", avg == null ? "not out" : fx(avg), "Runs off the bat per dismissal. No dismissals means no average, not zero."],
-    ["Strike rate", fx(strikeRate(h.runs, h.balls)), "Runs off the bat per 100 balls faced. Wides aren't balls faced; no-balls are."],
-    ["Dot balls", fpct(pct(h.dots, h.balls)), "Balls faced with no run off the bat, including the ball he was out to."],
-    ["Boundaries", fpct(pct(h.fours + h.sixes, h.balls)), "Share of balls faced hit for four or six (run fours excluded)."],
+    ["Dismissals", String(h.outs)],
+    ["Average", avg == null ? "–" : fx(avg)],
+  ];
+  const secondary: [string, string][] = [
+    ["Strike rate", fx(strikeRate(h.runs, h.balls))],
+    ["Dot balls", fpct(pct(h.dots, h.balls))],
+    ["Boundary every", h.fours + h.sixes ? `${fx(ballsPer(h.balls, h.fours + h.sixes))} balls` : "no boundaries"],
+    ["Balls per dismissal", h.outs ? fx(ballsPer(h.balls, h.outs)) : "–"],
+    ["Tests", String(h.matches)],
   ];
   return (
-    <>
-      <dl class="figures">
-        {items.map(([k, v, tip]) => (
+    <div class="figs">
+      <dl class="figs-1">
+        {primary.map(([k, v]) => (
           <div>
-            <dt>
-              {k}
-              {tip && <Info text={tip} />}
-            </dt>
+            <dt>{k}</dt>
             <dd class="num">{v}</dd>
           </div>
         ))}
       </dl>
-      <p class={`evidence ev-${ev}`}>
-        <EvidenceMeter outs={h.outs} />
-        <span>
-          <b>{EVIDENCE_TEXT[ev]}</b>: {h.outs} dismissal{h.outs === 1 ? "" : "s"} in {h.balls} balls across {h.matches} Test{h.matches === 1 ? "" : "s"}.
-        </span>
-      </p>
+      <dl class="figs-2">
+        {secondary.map(([k, v]) => (
+          <div>
+            <dt>{k}</dt>
+            <dd class="num">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+// One factual line on how much the figures rest on.
+function SampleNote({ h, bowler }: { h: BatAgg; bowler: string }) {
+  const r = averageRange(h.runs, h.balls, h.outs);
+  const base = `${h.balls} balls across ${h.matches} Test${h.matches === 1 ? "" : "s"}`;
+  let text: string;
+  if (h.outs === 0) text = `Not dismissed by ${bowler} in ${base}, so there is no average; strike rate and dot balls are the better guide.`;
+  else if (h.outs < 10 && r)
+    text = `${h.outs} dismissal${h.outs === 1 ? "" : "s"} in ${base}. With so few, the average is consistent with an underlying rate anywhere from ${fx(r.low, 0)} to ${r.high == null ? "no upper limit" : fx(r.high, 0)} (90% range).`;
+  else text = `${h.outs} dismissals in ${base}.`;
+  return <p class={`ct-note ${h.outs < 5 ? "is-thin" : ""}`}>{text}</p>;
+}
+
+// Splits the window into before this series, earlier in this series and this
+// match, so it is obvious how much of a figure is history and how much is today.
+function Sources({ bat, bowl, scope }: { bat: string; bowl: string; scope: Scope }) {
+  const { bundle, rows } = useMatch();
+  const key = bundle.match.series.key;
+  const parts: { k: string; label: string; s: Scope }[] = [
+    { k: "hist", label: "Before this series", s: { ...scope, current: false, prior: (m) => scope.prior(m) && (!key || m.series !== key) } },
+    { k: "series", label: "Earlier this series", s: { ...scope, current: false, prior: (m) => !!key && scope.prior(m) && m.series === key } },
+    { k: "match", label: "This match", s: { ...scope, prior: () => false } },
+  ];
+  const aggs = parts.map((p) => ({ ...p, a: h2hAgg(bundle, rows, bat, bowl, p.s) }));
+  const total = aggs.reduce((t, p) => t + p.a.balls, 0);
+  if (!total) return null;
+  return (
+    <div class="sources">
+      <div class="src-bar" role="img" aria-label={aggs.map((p) => `${p.label}: ${p.a.balls} balls`).join("; ")}>
+        {aggs.map((p) => p.a.balls > 0 && <span class={`src-${p.k}`} style={{ flexGrow: p.a.balls }} />)}
+      </div>
+      <ul class="src-key num">
+        {aggs.map((p) => (
+          <li class={p.a.balls ? "" : "is-empty"}>
+            <i class={`src-${p.k}`} />
+            <span class="src-label">{p.label}</span>
+            {p.a.balls ? (
+              <span>
+                {p.a.runs} off {p.a.balls}, {p.a.outs} out
+              </span>
+            ) : (
+              <span class="muted">none</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MatchupTable({ bat, bowl }: { bat: string; bowl: string }) {
+  const { bundle, rows, scopes, scope, setScope } = useMatch();
+  const n = names(bundle);
+  const career = scopes.find((s) => s.id === "career")!;
+  const lines = scopes.map((s) => ({ s, a: h2hAgg(bundle, rows, bat, bowl, s) }));
+  const byInnings = [1, 2, 3, 4].map((i) => ({ label: `${ordinalInns(i)} of a Test`, a: h2hAgg(bundle, rows, bat, bowl, career, { innings: [i] }) }));
+  return (
+    <div class="mt">
+      <h3 class="sub-h">
+        {n.short(bat)} v {n.short(bowl)}, every window
+      </h3>
+      <div class="scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Window</th>
+              <th scope="col">Balls</th>
+              <th scope="col">Runs</th>
+              <th scope="col">Out</th>
+              <th scope="col">Avg</th>
+              <th scope="col">SR</th>
+              <th scope="col">Dot %</th>
+              <th scope="col">Bdry %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.map(({ s, a }) => (
+              <tr class={`is-clickable ${s.id === scope ? "is-selected" : ""}`} onClick={() => setScope(s.id)} aria-selected={s.id === scope}>
+                <th scope="row">
+                  <button type="button" class="row-btn" onClick={(e) => (e.stopPropagation(), setScope(s.id))}>
+                    {s.label}
+                  </button>
+                </th>
+                <Cells a={a} />
+              </tr>
+            ))}
+            <tr class="group">
+              <th colSpan={8} scope="rowgroup">
+                Career, by innings of the match
+              </th>
+            </tr>
+            {byInnings.map(({ label, a }) => (
+              <tr>
+                <th scope="row">{label}</th>
+                <Cells a={a} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function Cells({ a }: { a: BatAgg }) {
+  if (a.balls === 0)
+    return (
+      <td colSpan={7} class="none">
+        no deliveries
+      </td>
+    );
+  const avg = average(a.runs, a.outs);
+  return (
+    <>
+      <td>{a.balls}</td>
+      <td>{a.runs}</td>
+      <td>{a.outs}</td>
+      <td>{avg == null ? <span class="muted">–</span> : fx(avg)}</td>
+      <td>{fx(strikeRate(a.runs, a.balls))}</td>
+      <td>{fpct(pct(a.dots, a.balls))}</td>
+      <td>{fpct(pct(a.fours + a.sixes, a.balls))}</td>
     </>
   );
 }
 
-// Five pips: how many dismissals the figure rests on, on a 1/5/10/20 scale.
-export function EvidenceMeter({ outs }: { outs: number }) {
-  const lit = outs >= 20 ? 5 : outs >= 10 ? 4 : outs >= 5 ? 3 : outs >= 2 ? 2 : outs >= 1 ? 1 : 0;
-  return (
-    <span class="meter" aria-hidden="true">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <i class={i < lit ? "on" : ""} />
-      ))}
-    </span>
-  );
-}
-
-function EdgeChart({ h, base, bowlBase, bat, bowl, scope }: { h: BatAgg; base: BatAgg; bowlBase: number | null; bat: string; bowl: string; scope: Scope }) {
-  const { bundle } = useMatch();
+// The head-to-head average against the batter's usual average and the
+// bowler's usual cost, with the 90% range around the head-to-head.
+function RangePlot({ h, bat, bowl, scope }: { h: BatAgg; bat: string; bowl: string; scope: Scope }) {
+  const { bundle, rows } = useMatch();
+  const [ref, width] = useWidth<HTMLDivElement>(360);
   const n = names(bundle);
-  const range = averageRange(h.runs, h.balls, h.outs);
+  const base = batAgg(bundle, rows, bat, scope, "bowler");
+  const bw = bowlAgg(bundle, rows, bowl, scope);
   const baseline = average(base.runs, base.outs);
-  const verdict = edge(range, baseline, h.balls, h.outs);
+  const bowlAvg = bw.wickets ? bw.runs / bw.wickets : null;
+  const r = averageRange(h.runs, h.balls, h.outs);
   const avg = average(h.runs, h.outs);
-  const max = Math.max(80, Math.ceil(((baseline ?? 0) * 1.6) / 20) * 20);
-  const x = (v: number) => `${(100 * Math.min(v, max)) / max}%`;
-  const B = n.short(bat);
-  const W = n.short(bowl);
-  const r = range as AverageRange;
-
-  let text: string;
-  if (verdict === "insufficient") text = `Too little evidence to say who has had the upper hand.`;
-  else if (verdict === "bowler") text = `${W} has had the better of it: even the top of the plausible range is below ${B}'s usual ${fx(baseline)}.`;
-  else if (verdict === "batter") text = `${B} has had the better of it: even the bottom of the plausible range is above ${B}'s usual ${fx(baseline)}.`;
-  else text = `No clear edge: the plausible range includes ${B}'s usual ${fx(baseline)}.`;
-
+  const max = Math.max(80, Math.ceil(Math.max(baseline ?? 0, bowlAvg ?? 0, avg ?? 0) * 1.4 / 20) * 20);
+  const W = Math.max(240, width);
+  const m = { l: 6, r: 6 };
+  const x = (v: number) => m.l + ((W - m.l - m.r) * Math.min(v, max)) / max;
+  const H = 104;
+  const yTrack = 46;
+  const anchor = (px: number) => (px < 60 ? "start" : px > W - 60 ? "end" : "middle");
   const ticks = [0, max / 4, max / 2, (3 * max) / 4, max];
+  const B = n.short(bat);
+  const Wn = n.short(bowl);
   return (
-    <figure class="edge">
-      <figcaption>
-        <span class="tag-model">Interpretation</span> {text}
-        <Info text={`The band is a 90% range for ${B}'s average against ${W} if dismissals arrive at a steady rate per ball (an exact Poisson interval on ${h.outs} dismissals in ${h.balls} balls). "Usual" is ${B}'s runs per bowler-credited dismissal against all bowlers in the same window (${scope.label.toLowerCase()}), so run outs don't flatter either side. A verdict needs the whole band on one side.`} />
-      </figcaption>
-      <div class="edge-plot" role="img" aria-label={`${B}'s average against ${W}: ${avg == null ? "never dismissed" : fx(avg)}, plausible range ${fx(r.low)} to ${r.high == null ? "unbounded" : fx(r.high)}; usual average ${fx(baseline)}.`}>
-        <div class="edge-labels">
-          {baseline != null && (
-            <span class="edge-ref-label" style={{ left: x(baseline) }}>
-              {B} usual <b class="num">{fx(baseline)}</b>
-            </span>
-          )}
-          {bowlBase != null && (
-            <span class={`edge-ref-label ${baseline != null && Math.abs(Math.min(baseline, max) - Math.min(bowlBase, max)) < max * 0.25 ? "up" : ""}`} style={{ left: x(bowlBase) }}>
-              {W} bowling avg <b class="num">{fx(bowlBase)}</b>
-            </span>
-          )}
-        </div>
-        <div class="edge-track">
-          <span class={`edge-band ${r.high == null || r.high > max ? "open" : ""}`} style={{ left: x(r.low), width: `calc(${x(r.high ?? max)} - ${x(r.low)})` }} />
-          {baseline != null && <span class="edge-ref bat" style={{ left: x(baseline) }} />}
-          {bowlBase != null && <span class="edge-ref bowl" style={{ left: x(bowlBase) }} />}
-          {avg != null && <span class="edge-dot" style={{ left: x(avg) }} title={`Observed ${fx(avg)}`} />}
-        </div>
-        <div class="edge-axis">
-          {ticks.map((t) => (
-            <span class="edge-tick num" style={{ left: x(t) }}>
-              {Math.round(t)}
-            </span>
-          ))}
-        </div>
-        <div class="edge-legend">
-          <span>
-            <i class="k-dot" /> {B} v {W}: {avg == null ? `not out in ${h.balls} balls` : <b class="num">{fx(avg)}</b>}
-          </span>
-          <span>
-            <i class="k-band" /> plausible range {fx(r.low, 0)}–{r.high == null ? "no upper limit" : r.high > max ? `${fx(r.high, 0)}+` : fx(r.high, 0)}
-          </span>
-        </div>
-      </div>
+    <figure class="range" ref={ref}>
+      <figcaption class="sub-h">Average in context</figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${B}'s average against ${Wn}: ${avg == null ? "not dismissed" : fx(avg)}. ${B}'s average against all bowlers in this window: ${fx(baseline)}. ${Wn}'s bowling average: ${fx(bowlAvg)}.`}>
+        {r && <rect class="rg-band" x={x(r.low)} y={yTrack - 7} width={Math.max(2, x(r.high ?? max) - x(r.low))} height={14} />}
+        <line class="rg-axis" x1={m.l} x2={W - m.r} y1={yTrack} y2={yTrack} />
+        {ticks.map((t) => (
+          <text class="rg-tick" x={x(t)} y={yTrack + 26} text-anchor={t === 0 ? "start" : t === max ? "end" : "middle"}>
+            {Math.round(t)}
+            {t === max && r?.high != null && r.high > max ? "+" : ""}
+          </text>
+        ))}
+        {baseline != null && (
+          <g class="rg-bat">
+            <line x1={x(baseline)} x2={x(baseline)} y1={14} y2={yTrack + 9} />
+            <text x={x(baseline)} y={10} text-anchor={anchor(x(baseline))}>
+              {B} v all bowlers {fx(baseline)}
+            </text>
+          </g>
+        )}
+        {bowlAvg != null && (
+          <g class="rg-bowl">
+            <line x1={x(bowlAvg)} x2={x(bowlAvg)} y1={yTrack - 9} y2={yTrack + 12} />
+            <text x={x(bowlAvg)} y={H - 4} text-anchor={anchor(x(bowlAvg))}>
+              {Wn}'s bowling average {fx(bowlAvg)}
+            </text>
+          </g>
+        )}
+        {avg != null && <circle class="rg-dot" cx={x(avg)} cy={yTrack} r={5.5} />}
+      </svg>
+      <p class="fig-note">
+        <i class="k-dot" /> {B} v {Wn} {avg == null ? "(not dismissed)" : fx(avg)} <i class="k-band" /> 90% range
+        {r ? ` ${fx(r.low, 0)}–${r.high == null ? "∞" : fx(r.high, 0)}` : ""}. Averages use bowler-credited dismissals only.
+      </p>
     </figure>
   );
 }
@@ -197,42 +350,43 @@ const SHAPE = [
   ["sixes", "6"],
 ] as const;
 
-function ScoringShape({ h, base, bowlerShort }: { h: BatAgg; base: BatAgg; bowlerShort: string }) {
-  const bar = (a: BatAgg) => {
-    const other = a.balls - SHAPE.reduce((s, [k]) => s + a[k], 0);
-    return [...SHAPE.map(([k, l]) => ({ k, l, v: a[k] })), { k: "other", l: "other", v: Math.max(0, other) }];
-  };
-  const rows: [string, BatAgg][] = [
-    [`v ${bowlerShort}`, h],
-    ["v all bowlers", base],
-  ];
+function ScoringShape({ h, bat, scope, bowlerShort }: { h: BatAgg; bat: string; scope: Scope; bowlerShort: string }) {
+  const { bundle, rows } = useMatch();
+  const base = batAgg(bundle, rows, bat, scope, "bowler");
   return (
     <figure class="shape">
-      <figcaption class="mini-h">
-        Scoring shape
-        <Info text="Each ball faced, by runs off the bat. 'Other' is 5s and run fours or sixes; leg byes and byes count as dots for the batter." />
-      </figcaption>
-      {rows.map(([label, a]) => (
-        <div class="shape-row">
-          <span class="shape-label">{label}</span>
-          <div class="shape-bar" role="img" aria-label={`${label}: ${bar(a).map((s) => `${s.l} ${fpct(pct(s.v, a.balls))}`).join(", ")}`}>
-            {bar(a)
-              .filter((s) => s.v > 0)
-              .map((s) => (
-                <span class={`seg seg-${s.k}`} style={{ flexGrow: s.v }} title={`${s.l}: ${s.v} of ${a.balls} (${fpct(pct(s.v, a.balls))})`} />
+      <figcaption class="sub-h">Scoring shots, share of balls</figcaption>
+      <table class="table shape-t">
+        <thead>
+          <tr>
+            <th scope="col">
+              <span class="sr">Against</span>
+            </th>
+            {SHAPE.map(([, l]) => (
+              <th scope="col">{l}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(
+            [
+              [`v ${bowlerShort}`, h],
+              ["v all", base],
+            ] as [string, BatAgg][]
+          ).map(([label, a]) => (
+            <tr>
+              <th scope="row">{label}</th>
+              {SHAPE.map(([k]) => (
+                <td>{fpct(pct(a[k], a.balls))}</td>
               ))}
-          </div>
-        </div>
-      ))}
-      <div class="shape-legend">
-        {SHAPE.map(([k, l]) => (
-          <span>
-            <i class={`seg-${k}`} />
-            {l} <b class="num">{fpct(pct(h[k], h.balls))}</b>
-            <span class="vs-base num">{fpct(pct(base[k], base.balls))}</span>
-          </span>
-        ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div class="shape-bar" aria-hidden="true">
+        {SHAPE.map(([k]) => h[k] > 0 && <span class={`seg-${k}`} style={{ flexGrow: h[k] }} />)}
       </div>
+      <p class="fig-note">Byes and leg byes count as dots for the batter; 5s and run fours are left out.</p>
     </figure>
   );
 }
@@ -244,101 +398,27 @@ function Meetings({ bat, bowl }: { bat: string; bowl: string }) {
   const maxBalls = Math.max(...ms.map((m) => m.balls), 1);
   return (
     <figure class="meetings">
-      <figcaption class="mini-h">
-        Every Test they've met
-        <Info text="One column per Test: height is balls faced, the label is runs, red marks are dismissals. This match counts only up to the selected ball." />
-      </figcaption>
+      <figcaption class="sub-h">Test by Test</figcaption>
       <div class="meet-cols">
         {ms.map((m) => (
           <div class={`meet ${m.current ? "is-current" : ""}`} title={`${m.venue}, ${m.date}: ${m.runs} off ${m.balls}, out ${m.outs}`}>
-            <span class="meet-outs">
-              {Array.from({ length: m.outs }).map(() => (
-                <i />
-              ))}
-            </span>
-            <span class="meet-bar" style={{ height: `${Math.max(2, (100 * m.balls) / maxBalls)}%` }} />
             <span class="meet-runs num">
               {m.runs}
               <small>/{m.balls}</small>
+            </span>
+            <span class="meet-plot">
+              <span class="meet-bar" style={{ height: `${Math.max(2, (100 * m.balls) / maxBalls)}%` }} />
+            </span>
+            <span class="meet-outs" aria-label={`${m.outs} dismissals`}>
+              {Array.from({ length: m.outs }).map(() => (
+                <i />
+              ))}
             </span>
             <span class="meet-label">{m.label}</span>
           </div>
         ))}
       </div>
+      <p class="fig-note">Bar height is balls faced; the label is runs/balls; red marks are dismissals by this bowler.</p>
     </figure>
-  );
-}
-
-function Splits({ bat, bowl }: { bat: string; bowl: string }) {
-  const { bundle, rows, scopes, scope, setScope } = useMatch();
-  const career = scopes.find((s) => s.id === "career")!;
-  const lines: { key: string; label: string; a: BatAgg; scope?: Scope }[] = scopes.map((s) => ({ key: s.id, label: s.label, a: h2hAgg(bundle, rows, bat, bowl, s), scope: s }));
-  const byInnings = [1, 2, 3, 4].map((i) => ({ key: `i${i}`, label: `${["1st", "2nd", "3rd", "4th"][i - 1]} innings of match`, a: h2hAgg(bundle, rows, bat, bowl, career, { innings: [i] }) }));
-  return (
-    <details class="splits" open>
-      <summary class="mini-h">Every window</summary>
-      <div class="scroll">
-        <table class="table num">
-          <thead>
-            <tr>
-              <th scope="col">Window</th>
-              <th>Balls</th>
-              <th>Runs</th>
-              <th>Out</th>
-              <th>Avg</th>
-              <th>SR</th>
-              <th>Dot %</th>
-              <th>
-                <span class="sr">Evidence</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.map(({ key, label, a, scope: s }) => (
-              <tr class={key === scope ? "is-selected" : ""} onClick={() => s && setScope(s.id)}>
-                <th scope="row">
-                  <button type="button" class="row-btn" onClick={() => s && setScope(s.id)}>
-                    {label}
-                  </button>
-                </th>
-                <Cells a={a} />
-              </tr>
-            ))}
-            <tr class="group">
-              <th colSpan={8}>Career, by match innings</th>
-            </tr>
-            {byInnings.map(({ label, a }) => (
-              <tr>
-                <th scope="row">{label}</th>
-                <Cells a={a} />
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </details>
-  );
-}
-
-function Cells({ a }: { a: BatAgg }) {
-  if (a.balls === 0)
-    return (
-      <td colSpan={7} class="none">
-        no deliveries
-      </td>
-    );
-  const avg = average(a.runs, a.outs);
-  return (
-    <>
-      <td>{a.balls}</td>
-      <td>{a.runs}</td>
-      <td>{a.outs}</td>
-      <td>{avg == null ? <span class="muted">n/o</span> : fx(avg)}</td>
-      <td>{fx(strikeRate(a.runs, a.balls))}</td>
-      <td>{fpct(pct(a.dots, a.balls))}</td>
-      <td title={EVIDENCE_TEXT[evidence(a.balls, a.outs)]}>
-        <EvidenceMeter outs={a.outs} />
-      </td>
-    </>
   );
 }
