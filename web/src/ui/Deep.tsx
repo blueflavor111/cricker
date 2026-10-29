@@ -2,23 +2,27 @@ import { useState } from "preact/hooks";
 import { useMatch } from "./context";
 import { ballCode, code, describeBall, dismissalText, fx, fpct, names, teamColor } from "./format";
 import { Name } from "./Name";
-import { economy, pct, strikeRate, average } from "../engine/definitions";
+import { economy, pct, strikeRate } from "../engine/definitions";
 import { oversText } from "../engine/replay";
 import { h2hAgg } from "../engine/stats";
-import { EvidenceMeter } from "./Contest";
+import { Cells } from "./Contest";
 
-type Tab = "card" | "attack" | "balls";
+type Tab = "card" | "attack" | "balls" | "defs";
 
 export function Deep() {
   const [tab, setTab] = useState<Tab>("card");
   return (
-    <section class="panel deep" aria-label="Detail">
-      <div class="tabs" role="tablist">
+    <section class="detail" aria-labelledby="detail-h">
+      <header class="sec-head">
+        <h2 id="detail-h">Detail</h2>
+      </header>
+      <div class="tabs" role="tablist" aria-label="Detail">
         {(
           [
             ["card", "Scorecard"],
             ["attack", "Matchups"],
             ["balls", "Ball by ball"],
+            ["defs", "Definitions"],
           ] as [Tab, string][]
         ).map(([k, l]) => (
           <button role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
@@ -29,6 +33,7 @@ export function Deep() {
       {tab === "card" && <Scorecard />}
       {tab === "attack" && <Attack />}
       {tab === "balls" && <BallLog />}
+      {tab === "defs" && <Definitions />}
     </section>
   );
 }
@@ -53,8 +58,10 @@ function Scorecard() {
           </button>
         ))}
       </div>
+      <div class="card-grid">
+      <div>
       <div class="scroll">
-        <table class="table num card-bat">
+        <table class="table card-bat">
           <thead>
             <tr>
               <th>Batter</th>
@@ -112,6 +119,8 @@ function Scorecard() {
           </>
         )}
       </p>
+      </div>
+      <div>
       {inn.fow.length > 0 && (
         <p class="card-foot">
           Fall of wickets:{" "}
@@ -129,7 +138,7 @@ function Scorecard() {
         </p>
       )}
       <div class="scroll">
-        <table class="table num card-bowl">
+        <table class="table card-bowl">
           <thead>
             <tr>
               <th>Bowler</th>
@@ -164,6 +173,8 @@ function Scorecard() {
           </tbody>
         </table>
       </div>
+      </div>
+      </div>
     </div>
   );
 }
@@ -180,7 +191,7 @@ function Attack() {
   return (
     <div class="attack">
       <p class="muted small">
-        Window: <b>{scope.label}</b> (change it in the contest above). Rows with no deliveries are left blank, not zero. Sorted by balls faced.
+        Each batter at the crease against every bowler in the opposition, in the window chosen in the contest ({scope.label.toLowerCase()}). Sorted by balls faced.
       </p>
       {batters.map((bat) => {
         const list = bowlers
@@ -188,7 +199,7 @@ function Attack() {
           .sort((x, y) => y.a.balls - x.a.balls);
         return (
           <div class="scroll">
-            <table class="table num">
+            <table class="table">
               <caption>
                 <Name id={bat} /> against {opp}
               </caption>
@@ -201,9 +212,7 @@ function Attack() {
                   <th>Avg</th>
                   <th>SR</th>
                   <th>Dot %</th>
-                  <th>
-                    <span class="sr">Evidence</span>
-                  </th>
+                  <th>Bdry %</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,23 +221,7 @@ function Attack() {
                     <th scope="row">
                       <Name id={bw} />
                     </th>
-                    {a.balls === 0 ? (
-                      <td colSpan={7} class="none">
-                        no deliveries
-                      </td>
-                    ) : (
-                      <>
-                        <td>{a.balls}</td>
-                        <td>{a.runs}</td>
-                        <td>{a.outs}</td>
-                        <td>{a.outs ? fx(average(a.runs, a.outs)) : <span class="muted">n/o</span>}</td>
-                        <td>{fx(strikeRate(a.runs, a.balls))}</td>
-                        <td>{fpct(pct(a.dots, a.balls))}</td>
-                        <td>
-                          <EvidenceMeter outs={a.outs} />
-                        </td>
-                      </>
-                    )}
+                    <Cells a={a} />
                   </tr>
                 ))}
               </tbody>
@@ -284,5 +277,32 @@ function BallLog() {
       </ol>
       {overs.length > 30 && <p class="muted small">Showing the last 30 of {overs.length} overs. Move the timeline to see earlier ones.</p>}
     </div>
+  );
+}
+
+function Definitions() {
+  const defs: [string, string][] = [
+    ["Ball faced", "Every delivery except a wide. No-balls count as balls faced."],
+    ["Dot ball", "A ball faced with no run off the bat, including the ball the batter was out to. Byes and leg byes count as dots for the batter."],
+    ["Dismissal (head-to-head)", "Bowled, caught, lbw, stumped or hit wicket off this bowler. Run outs are not charged to the bowler."],
+    ["Average", "Runs off the bat per dismissal. With no dismissals there is no average, which is not the same as zero."],
+    ["Strike rate", "Runs off the bat per 100 balls faced."],
+    ["Boundary %", "Share of balls faced hit for four or six. Fours and sixes that were run are left out."],
+    ["90% range", "An exact Poisson interval on the number of dismissals: the band of underlying averages consistent with the record if dismissals arrive at a steady rate per ball."],
+    ["Runs conceded", "Runs off the bat plus wides and no-balls. Byes and leg byes are not charged to the bowler."],
+    ["Bowling average", "Runs conceded per bowler-credited wicket."],
+    ["Retired", "Retired hurt and retired not out are not dismissals."],
+    ["Windows", "Career is every Test in the data, including this match up to the selected ball. Before this match stops at its first day. Other windows filter the same rows by series, date, country or ground."],
+    ["Coverage", "Men's Tests in Cricsheet's ball-by-ball record from Dec 2001. Some Tests are missing, so counts are of the data, not of all Tests ever played."],
+  ];
+  return (
+    <dl class="defs">
+      {defs.map(([k, v]) => (
+        <div>
+          <dt>{k}</dt>
+          <dd>{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }

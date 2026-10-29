@@ -53,9 +53,9 @@ export function PlayerDrawer({ id, onClose }: { id: string; onClose: () => void 
 
         {bats && (
           <>
-            <h3 class="mini-h">Batting</h3>
+            <h3 class="sub-h">Batting</h3>
             <div class="scroll">
-              <table class="table num">
+              <table class="table">
                 <thead>
                   <tr>
                     <th>Window</th>
@@ -91,7 +91,7 @@ export function PlayerDrawer({ id, onClose }: { id: string; onClose: () => void 
             <Recent rows={recent} />
             {by.length > 0 && (
               <p class="who">
-                <span class="mini-h">Dismissed most by</span>{" "}
+                <span class="sub-h">Dismissed most by</span>{" "}
                 {by.map(([p, k], i) => (
                   <>
                     {i ? ", " : ""}
@@ -106,9 +106,9 @@ export function PlayerDrawer({ id, onClose }: { id: string; onClose: () => void 
 
         {bowls && (
           <>
-            <h3 class="mini-h">Bowling</h3>
+            <h3 class="sub-h">Bowling</h3>
             <div class="scroll">
-              <table class="table num">
+              <table class="table">
                 <thead>
                   <tr>
                     <th>Window</th>
@@ -145,7 +145,7 @@ export function PlayerDrawer({ id, onClose }: { id: string; onClose: () => void 
             </div>
             {got.length > 0 && (
               <p class="who">
-                <span class="mini-h">Dismissed most often</span>{" "}
+                <span class="sub-h">Dismissed most often</span>{" "}
                 {got.map(([p, k], i) => (
                   <>
                     {i ? ", " : ""}
@@ -173,7 +173,7 @@ function Recent({ rows }: { rows: BatRow[] }) {
   const max = Math.max(50, ...rows.map((r) => r[3]));
   return (
     <figure class="recent-inns">
-      <figcaption class="mini-h">Last {rows.length} innings</figcaption>
+      <figcaption class="sub-h">Last {rows.length} innings</figcaption>
       <div class="ri-cols">
         {rows.map((r) => {
           const m = bundle.history.matches[r[0]];
