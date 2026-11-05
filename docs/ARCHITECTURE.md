@@ -36,12 +36,18 @@ a filter is a predicate, not a new query.
 **The contest is the last ball's batter and bowler.** Showing the next ball's
 pairing would leak the future (bowling changes, the incoming batter).
 
-**One page, three regions.** A sticky score header and timeline; a central
-canvas (the contest, then how the innings is building, then scorecard,
-matchups and ball log); a context column (ground totals, similar positions,
-form, ground record). On phones the timeline moves to a bottom bar and the
-regions become four views. State that matters (match, ball, window, open
-profile) is in the URL hash, so a link reproduces the view.
+**One page, read top to bottom.** A scoreboard (score, state of play, the
+batters and bowler, this over, a scorebook summary), then playback directly
+beneath it (sticky; it picks up a compact score once the scoreboard scrolls
+away). Below that an 8/4 grid: the contest (the last ball's batter against its
+bowler, with windows, figures and the matchup table) beside match context
+(similar positions first, then unconditional ground history). Then a
+full-width innings progression and the detail tabs (scorecard, matchups, ball
+by ball, definitions). On phones the order is score, players, matchup, context,
+tables, and playback becomes a bottom bar that always carries the score.
+Charts draw with a viewBox at their measured width, so they scale rather than
+spill when printed. State that matters (match, ball, window, open profile) is
+in the URL hash, so a link reproduces the view.
 
 ## Extending
 
