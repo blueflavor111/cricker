@@ -5,25 +5,43 @@ import { comparable, groundRecord, quantile, totals, type Total } from "../engin
 import { average, economy } from "../engine/definitions";
 import { batAgg, bowlAgg, fmtDate, shortVenue } from "../engine/stats";
 import { Name } from "./Name";
+import { Collapse } from "./Tabs";
 
 // Supporting column. Conditional history (innings that were where this one
 // is now) comes first; unconditional ground history is labelled as such.
 export function GroundContext() {
-  const { bundle } = useMatch();
+  const { bundle, state } = useMatch();
+  const n = names(bundle);
   const v = shortVenue(bundle.match.venue.name).replace(/^the /, "The ");
+  const cur = state.current;
+  const all = totals(bundle, bundle.history.venue, cur.n);
+  const med = quantile(all.map((t) => t.runs).sort((a, b) => a - b), 0.5);
   return (
     <section class="context" aria-labelledby="context-h">
       <header class="sec-head">
         <h2 id="context-h">Match context</h2>
       </header>
       <Comparable />
-      <div class="ctx-block">
-        <h3 class="ctx-h">Ground history: {v}</h3>
-        <p class="ctx-sub">Every innings here in the data, whatever the match state.</p>
+      <Collapse
+        title={`Ground history: ${v}`}
+        summary={
+          all.length ? (
+            <>
+              Every {ordinal(cur.n)} innings here, whatever the match state: median <b class="num">{Math.round(med!)}</b> from {all.length} innings.
+            </>
+          ) : (
+            `No ${ordinal(cur.n)} innings here in the data.`
+          )
+        }
+      >
         <TotalStrip />
         <Record />
-      </div>
-      <Form />
+      </Collapse>
+      {state.crease.length > 0 && (
+        <Collapse title="Today against their record" summary={`${[...state.crease, state.bowler].map(n.short).join(", ")}: today's figures beside their averages before this match.`}>
+          <Form />
+        </Collapse>
+      )}
     </section>
   );
 }
@@ -216,9 +234,8 @@ function Form() {
   const cell = (runs: number, outs: number, inns: number) =>
     inns === 0 ? <td class="none">–</td> : <td title={`${inns} innings, ${outs} dismissals`}>{fx(average(runs, outs))}<small> {inns}i</small></td>;
   return (
-    <div class="ctx-block">
-      <h3 class="ctx-h">Today against their record</h3>
-      <p class="ctx-sub">Averages before this match; small figures are innings or Tests.</p>
+    <div>
+      <p class="fig-note">Small figures are innings or Tests.</p>
       <table class="table compact">
         <thead>
           <tr>

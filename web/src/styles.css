@@ -2154,3 +2154,83 @@ small {
   border-top: 1px solid var(--rule);
   color: var(--ink-2);
 }
+
+/* ---- Subtabs and collapsible sections -------------------------------- */
+
+.ct-more {
+  margin-top: var(--s6);
+}
+.tabs-sm {
+  gap: var(--s4);
+  margin-bottom: var(--s4);
+}
+.tabs-sm button {
+  font-size: 14px;
+  padding: 6px 0;
+}
+.tab-lede {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-bottom: var(--s3);
+}
+.ct-more .meetings,
+.ct-more .mt {
+  margin-top: 0;
+}
+.ct-more .range,
+.ct-more .shape {
+  max-width: 640px;
+}
+.detail .progress {
+  margin-top: 0;
+}
+.collapse-head {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.collapse-act {
+  flex: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+}
+.collapse-act::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+}
+.collapse.is-open .collapse-act::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+.collapse-head:hover .ctx-h {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.collapse-body {
+  display: none;
+}
+.collapse.is-open .collapse-body {
+  display: block;
+}
+@media print {
+  .collapse-body {
+    display: block;
+  }
+  .collapse-act {
+    display: none;
+  }
+}

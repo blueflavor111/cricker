@@ -7,7 +7,6 @@ import { currentRows, scopes, type ScopeId } from "./engine/stats";
 import { Masthead, TopNav } from "./ui/Header";
 import { TimeBar } from "./ui/TimeBar";
 import { Contest } from "./ui/Contest";
-import { Development } from "./ui/Development";
 import { GroundContext } from "./ui/GroundContext";
 import { Deep } from "./ui/Deep";
 import { PlayerDrawer } from "./ui/PlayerDrawer";
@@ -105,7 +104,6 @@ export function App() {
           <Contest />
           <GroundContext />
         </div>
-        <Development />
         <Deep />
       </main>
       <footer class="foot wrap">

@@ -41,7 +41,7 @@ export function TimeBar({ stuck }: { stuck: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
-      if (t.closest("input, select, textarea, [role=dialog]")) return;
+      if (t.closest("input, select, textarea, [role=dialog], [role=tab]")) return;
       const c = state.cursor;
       let to: number | null = null;
       if (e.key === "ArrowRight") to = e.shiftKey ? overStart(c, 1) : c + 1;

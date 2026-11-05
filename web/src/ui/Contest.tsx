@@ -5,6 +5,7 @@ import { fx, fpct, names, teamColor } from "./format";
 import { averageRange, average, ballsPer, pct, strikeRate, type BatAgg } from "../engine/definitions";
 import { batAgg, bowlAgg, h2hAgg, meetings, type Scope, type ScopeId } from "../engine/stats";
 import { oversText } from "../engine/replay";
+import { Tabs } from "./Tabs";
 
 // The three windows most people want; the rest sit in a selector beside them.
 const PRIMARY: ScopeId[] = ["career", "series", "match"];
@@ -75,14 +76,23 @@ export function Contest() {
           <Sources bat={bat} bowl={bowl} scope={scope} />
         </>
       )}
-      <MatchupTable bat={bat} bowl={bowl} />
-      {h.balls > 0 && (
-        <div class="ct-pair">
-          <RangePlot h={h} bat={bat} bowl={bowl} scope={scope} />
-          <ScoringShape h={h} bat={bat} scope={scope} bowlerShort={n.short(bowl)} />
-        </div>
-      )}
-      <Meetings bat={bat} bowl={bowl} />
+      <div class="ct-more">
+        <Tabs
+          small
+          label="More on this matchup"
+          tabs={[
+            { id: "windows", label: "Every window", render: () => <MatchupTable bat={bat} bowl={bowl} /> },
+            { id: "innings", label: "By innings", render: () => <InningsTable bat={bat} bowl={bowl} /> },
+            ...(h.balls > 0
+              ? [
+                  { id: "range", label: "Average in context", render: () => <RangePlot h={h} bat={bat} bowl={bowl} scope={scope} /> },
+                  { id: "shape", label: "Scoring shots", render: () => <ScoringShape h={h} bat={bat} scope={scope} bowlerShort={n.short(bowl)} /> },
+                ]
+              : []),
+            { id: "tests", label: "Test by Test", render: () => <Meetings bat={bat} bowl={bowl} /> },
+          ]}
+        />
+      </div>
     </section>
   );
 }
@@ -209,14 +219,12 @@ function Sources({ bat, bowl, scope }: { bat: string; bowl: string; scope: Scope
 function MatchupTable({ bat, bowl }: { bat: string; bowl: string }) {
   const { bundle, rows, scopes, scope, setScope } = useMatch();
   const n = names(bundle);
-  const career = scopes.find((s) => s.id === "career")!;
   const lines = scopes.map((s) => ({ s, a: h2hAgg(bundle, rows, bat, bowl, s) }));
-  const byInnings = [1, 2, 3, 4].map((i) => ({ label: `${ordinalInns(i)} of a Test`, a: h2hAgg(bundle, rows, bat, bowl, career, { innings: [i] }) }));
   return (
     <div class="mt">
-      <h3 class="sub-h">
-        {n.short(bat)} v {n.short(bowl)}, every window
-      </h3>
+      <p class="tab-lede">
+        {n.short(bat)} v {n.short(bowl)} in each window. Select a row to use it above.
+      </p>
       <div class="scroll">
         <table class="table">
           <thead>
@@ -242,11 +250,38 @@ function MatchupTable({ bat, bowl }: { bat: string; bowl: string }) {
                 <Cells a={a} />
               </tr>
             ))}
-            <tr class="group">
-              <th colSpan={8} scope="rowgroup">
-                Career, by innings of the match
-              </th>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function InningsTable({ bat, bowl }: { bat: string; bowl: string }) {
+  const { bundle, rows, scopes } = useMatch();
+  const n = names(bundle);
+  const career = scopes.find((s) => s.id === "career")!;
+  const byInnings = [1, 2, 3, 4].map((i) => ({ label: `${ordinalInns(i)} of a Test`, a: h2hAgg(bundle, rows, bat, bowl, career, { innings: [i] }) }));
+  return (
+    <div class="mt">
+      <p class="tab-lede">
+        {n.short(bat)} v {n.short(bowl)} over their careers, split by the innings of the match.
+      </p>
+      <div class="scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Innings</th>
+              <th scope="col">Balls</th>
+              <th scope="col">Runs</th>
+              <th scope="col">Out</th>
+              <th scope="col">Avg</th>
+              <th scope="col">SR</th>
+              <th scope="col">Dot %</th>
+              <th scope="col">Bdry %</th>
             </tr>
+          </thead>
+          <tbody>
             {byInnings.map(({ label, a }) => (
               <tr>
                 <th scope="row">{label}</th>
@@ -305,7 +340,7 @@ function RangePlot({ h, bat, bowl, scope }: { h: BatAgg; bat: string; bowl: stri
   const Wn = n.short(bowl);
   return (
     <figure class="range" ref={ref}>
-      <figcaption class="sub-h">Average in context</figcaption>
+      <figcaption class="tab-lede">{B}'s average against {Wn}, compared with {B}'s average against all bowlers and {Wn}'s bowling average in the same window.</figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={`${B}'s average against ${Wn}: ${avg == null ? "not dismissed" : fx(avg)}. ${B}'s average against all bowlers in this window: ${fx(baseline)}. ${Wn}'s bowling average: ${fx(bowlAvg)}.`}>
         {r && <rect class="rg-band" x={x(r.low)} y={yTrack - 7} width={Math.max(2, x(r.high ?? max) - x(r.low))} height={14} />}
         <line class="rg-axis" x1={m.l} x2={W - m.r} y1={yTrack} y2={yTrack} />
@@ -355,7 +390,7 @@ function ScoringShape({ h, bat, scope, bowlerShort }: { h: BatAgg; bat: string; 
   const base = batAgg(bundle, rows, bat, scope, "bowler");
   return (
     <figure class="shape">
-      <figcaption class="sub-h">Scoring shots, share of balls</figcaption>
+      <figcaption class="tab-lede">Share of balls faced by runs scored.</figcaption>
       <table class="table shape-t">
         <thead>
           <tr>
@@ -398,7 +433,7 @@ function Meetings({ bat, bowl }: { bat: string; bowl: string }) {
   const maxBalls = Math.max(...ms.map((m) => m.balls), 1);
   return (
     <figure class="meetings">
-      <figcaption class="sub-h">Test by Test</figcaption>
+      <figcaption class="tab-lede">Every Test they have met in.</figcaption>
       <div class="meet-cols">
         {ms.map((m) => (
           <div class={`meet ${m.current ? "is-current" : ""}`} title={`${m.venue}, ${m.date}: ${m.runs} off ${m.balls}, out ${m.outs}`}>

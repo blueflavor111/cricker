@@ -74,13 +74,10 @@ export function Development() {
   });
 
   return (
-    <section class="progress" aria-labelledby="dev-h">
-      <header class="sec-head">
-        <h2 id="dev-h">Innings progression</h2>
-        <span class="sec-note">
-          {cur.team}, {ordinal(n)} innings: cumulative runs by over against {ordinal(n)} innings {useVenue ? "at" : "in"} {place}
-        </span>
-      </header>
+    <div class="progress">
+      <p class="tab-lede">
+        {cur.team}, {ordinal(n)} innings: cumulative runs by over against past {ordinal(n)} innings {useVenue ? "at" : "in"} {place}.
+      </p>
       <div class="prog-grid">
         <div>
           <ul class="legend">
@@ -205,7 +202,7 @@ export function Development() {
         </div>
         <Partnerships />
       </div>
-    </section>
+    </div>
   );
 }
 

@@ -1,4 +1,6 @@
 import { useState } from "preact/hooks";
+import { Tabs } from "./Tabs";
+import { Development } from "./Development";
 import { useMatch } from "./context";
 import { ballCode, code, describeBall, dismissalText, fx, fpct, names, teamColor } from "./format";
 import { Name } from "./Name";
@@ -7,33 +9,23 @@ import { oversText } from "../engine/replay";
 import { h2hAgg } from "../engine/stats";
 import { Cells } from "./Contest";
 
-type Tab = "card" | "attack" | "balls" | "defs";
-
+// Everything below the overview, one tab at a time.
 export function Deep() {
-  const [tab, setTab] = useState<Tab>("card");
   return (
     <section class="detail" aria-labelledby="detail-h">
       <header class="sec-head">
-        <h2 id="detail-h">Detail</h2>
+        <h2 id="detail-h">Match detail</h2>
       </header>
-      <div class="tabs" role="tablist" aria-label="Detail">
-        {(
-          [
-            ["card", "Scorecard"],
-            ["attack", "Matchups"],
-            ["balls", "Ball by ball"],
-            ["defs", "Definitions"],
-          ] as [Tab, string][]
-        ).map(([k, l]) => (
-          <button role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
-            {l}
-          </button>
-        ))}
-      </div>
-      {tab === "card" && <Scorecard />}
-      {tab === "attack" && <Attack />}
-      {tab === "balls" && <BallLog />}
-      {tab === "defs" && <Definitions />}
+      <Tabs
+        label="Match detail"
+        tabs={[
+          { id: "progress", label: "Innings progression", render: () => <Development /> },
+          { id: "card", label: "Scorecard", render: () => <Scorecard /> },
+          { id: "attack", label: "Matchups", render: () => <Attack /> },
+          { id: "balls", label: "Ball by ball", render: () => <BallLog /> },
+          { id: "defs", label: "Definitions", render: () => <Definitions /> },
+        ]}
+      />
     </section>
   );
 }
