@@ -12,6 +12,7 @@ dev = ["pytest>=8"]
 cricker-ingest = "cricker.ingest:main"
 cricker-matchup = "cricker.matchups:main"
 cricker-bundle = "cricker.bundle:main"
+cricker-live = "cricker.sportmonks:main"
 
 [tool.setuptools]
 packages = ["cricker"]
