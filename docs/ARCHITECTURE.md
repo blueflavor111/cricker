@@ -69,3 +69,17 @@ in the URL hash, so a link reproduces the view.
 - **Player and ground pages**: the drawer and the context column already
   compute from bundle rows; a standalone page needs a bundle per player or
   ground built the same way.
+
+## Live feed (trial)
+
+`cricker-live` (cricker/sportmonks.py) polls a live Sportmonks fixture every
+20 seconds and writes it as innings of events in the bundle's event format, to
+`data/live/<fixture>.json`. Each poll rebuilds the whole match keyed by
+Sportmonks' ball id, so an amended ball replaces the old one; the change is
+logged to `<fixture>.log.jsonl` along with when each ball was first seen.
+`cricker-live --summary <log>` prints latency and correction counts.
+
+Sportmonks players are mapped to Cricsheet ids by name (exact, then unique
+surname plus first initial) against the people table, and saved to
+`data/live/sportmonks_players.json` for manual fixes. Unmatched players stay
+as `sm:<id>` so they never pick up another player's history.
